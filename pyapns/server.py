@@ -8,7 +8,7 @@ from six.moves import cStringIO as _StringIO
 from OpenSSL import SSL, crypto
 from twisted.internet import reactor, defer
 from twisted.internet.protocol import (
-  ReconnectingClientFactory, ClientFactory, Protocol, ServerFactory)
+  ReconnectingClientFactory, ClientFactory, Protocol)
 from twisted.internet.ssl import ClientContextFactory
 from twisted.application import service
 from twisted.protocols.basic import LineReceiver
@@ -338,11 +338,17 @@ def encode_notifications(tokens, notifications):
     def binaryify(t):
         return t.decode('hex')
 
+    def _encode(tokens, notifications):
+        for t, p in zip(tokens, notifications):
+            d = json.dumps(p, separators(',', ':'), ensure_ascii=False)
+            y = (binaryify(t), d.encode('utf-8'))
+            yield structify(*y)
+
     if type(notifications) is dict and type(tokens) in (six.text_type, six.binary_type):
         tokens, notifications = ([tokens], [notifications])
 
     if type(notifications) is list and type(tokens) is list:
-        return ''.join([structify(*y) for y in ((binaryify(t), json.dumps(p, separators=(',', ':'), ensure_ascii=False).encode('utf-8')) for t, p in zip(tokens, notifications))])
+        return ''.join(_encode(tokens, notifications))
 
 
 def decode_feedback(binary_tuples):
