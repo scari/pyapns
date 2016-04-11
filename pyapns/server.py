@@ -1,9 +1,10 @@
 from __future__ import with_statement
+import six
 import _json as json
 import struct
 import binascii
 import datetime
-from StringIO import StringIO as _StringIO
+from six.moves import cStringIO as _StringIO
 from OpenSSL import SSL, crypto
 from twisted.internet import reactor, defer
 from twisted.internet.protocol import (
@@ -233,7 +234,7 @@ class APNSService(service.Service):
         return r
       
       factory.deferred.addBoth(cancel_timeout)
-    except Exception, e:
+    except Exception as e:
       log.err('APNService feedback error initializing: %s' % str(e))
       raise
     return factory.deferred
@@ -324,11 +325,10 @@ def encode_notifications(tokens, notifications):
   fmt = "!BH32sH%ds"
   structify = lambda t, p: struct.pack(fmt % len(p), 0, 32, t, len(p), p)
   binaryify = lambda t: t.decode('hex')
-  if type(notifications) is dict and type(tokens) in (str, unicode):
+  if type(notifications) is dict and type(tokens) in (six.text_type, six.binary_type):
     tokens, notifications = ([tokens], [notifications])
   if type(notifications) is list and type(tokens) is list:
-    return ''.join(map(lambda y: structify(*y), ((binaryify(t), json.dumps(p, separators=(',',':'), ensure_ascii=False).encode('utf-8'))
-                                    for t, p in zip(tokens, notifications))))
+    return ''.join([structify(*y) for y in ((binaryify(t), json.dumps(p, separators=(',', ':'), ensure_ascii=False).encode('utf-8')) for t, p in zip(tokens, notifications))])
 
 def decode_feedback(binary_tuples):
   """ Returns a list of tuples in (datetime, token_str) format 

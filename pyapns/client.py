@@ -1,7 +1,7 @@
-import xmlrpclib
 import threading
-import httplib
 import functools
+from six.moves import xmlrpc_client
+from six.moves import http_client
 from sys import hexversion
 
 OPTIONS = {'CONFIGURED': False, 'TIMEOUT': 20}
@@ -59,7 +59,7 @@ def reprovision_and_retry(func):
           for initial in OPTIONS['INITIAL']:
             provision(*initial) # retry provisioning the initial setup
           func(*a, **kw) # and try the function once more
-        except Exception, new_exc:
+        except Exception as new_exc:
           errback(new_exc) # throwing the new exception
       else:
         errback(e) # not an instance of UnknownAppID - nothing we can do here
@@ -120,7 +120,7 @@ def _xmlrpc_thread(method, args, callback, errback=None):
     for part in parts:
       proxy = getattr(proxy, part)
     return callback(proxy(*args))
-  except xmlrpclib.Fault, e:
+  except xmlrpc_client.Fault as e:
     if e.faultCode == 404:
       e = UnknownAppID()
     if errback is not None:
@@ -138,26 +138,33 @@ def ServerProxy(url, *args, **kwargs):
   t = TimeoutTransport()
   t.timeout = kwargs.pop('timeout', 20)
   kwargs['transport'] = t
-  return xmlrpclib.ServerProxy(url, *args, **kwargs)
+  return xmlrpc_client.ServerProxy(url, *args, **kwargs)
 
-class TimeoutTransport(xmlrpclib.Transport):
+class TimeoutTransport(xmlrpc_client.Transport):
   def make_connection(self, host):
+    # TODO: Should I support?? Maybe...
+    '''
     if hexversion < 0x02070000:
         conn = TimeoutHTTP(host)
         conn.set_timeout(self.timeout)
     else:
         conn = TimeoutHTTPConnection(host)
         conn.timeout = self.timeout
+    '''
+    conn = TimeoutHTTPConnection(host)
+    conn.timeout = self.timeout
     return conn
 
-class TimeoutHTTPConnection(httplib.HTTPConnection):
+class TimeoutHTTPConnection(http_client.HTTPConnection):
   def connect(self):
-    httplib.HTTPConnection.connect(self)
+    http_client.HTTPConnection.connect(self)
     self.sock.settimeout(self.timeout)
   
-class TimeoutHTTP(httplib.HTTP):
+'''
+class TimeoutHTTP(http_client.HTTP):
   _connection_class = TimeoutHTTPConnection
   
   def set_timeout(self, timeout):
     self._conn.timeout = timeout
   
+'''
